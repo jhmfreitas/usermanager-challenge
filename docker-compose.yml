@@ -1,0 +1,104 @@
+services:
+  usermanager-app:
+    image: app-user:latest
+    container_name: usermanager-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/userdb?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health, info, metrics, prometheus, loggers
+      MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED: "true"
+      LOGGING_FILE_NAME: /var/log/usermanager/usermanager.log
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - usermanager-logs:/var/log/usermanager
+    networks:
+      - user_service_network
+
+  mysql:
+    image: mysql:9.5
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: userdb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+    ports:
+      - "3307:3306" # Can be useful for using DB client tools
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 5s
+      retries: 5
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db_init:/docker-entrypoint-initdb.d
+    networks:
+      - user_service_network
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    networks:
+      - user_service_network
+
+  grafana:
+    image: grafana/grafana:12.3.0-18925857539-ubuntu
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - user_service_network
+    depends_on:
+      - prometheus
+      - loki
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+
+  loki:
+    image: grafana/loki:3.5.7
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - user_service_network
+
+  promtail:
+    image: grafana/promtail:3.5
+    container_name: promtail
+    volumes:
+      - usermanager-logs:/var/log/usermanager:ro
+      - ./monitoring/promtail/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - user_service_network
+    depends_on:
+      - loki
+      - usermanager-app
+
+networks:
+  user_service_network:
+    name: user-service-network
+
+volumes:
+  mysql_data:
+    name: usermanager_mysql_data
+
+  grafana_data:
+    name: usermanager_grafana_data
+
+  usermanager-logs:
+    name: usermanager_logs

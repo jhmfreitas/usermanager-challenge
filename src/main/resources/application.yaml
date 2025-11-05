@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: usermanager
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    database-platform: org.hibernate.dialect.MySQLDialect
+    # Datasource defined in docker compose file
+management:
+  otel:
+    metrics:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
