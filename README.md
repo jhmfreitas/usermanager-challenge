@@ -111,6 +111,10 @@ Jacoco coverage report.
 
 ![Jacoco Coverage Report](./docs/jacoco_coverage_report.png)
 
+## Demo
+
+A short demo validating the APIs via Postman and showcasing the Grafana integration, was included in the [`docs`](docs) folder
+
 ## Possible Future Improvements
 
 - [ ] Add tracing with **SLF4J MDC** + integration with Grafana Tempo
